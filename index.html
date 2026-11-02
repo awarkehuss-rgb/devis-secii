@@ -130,8 +130,7 @@ nav.tabs button.on{color:var(--red);font-weight:700}
   </div>
   <div class="card">
     <h2>Totaux</h2>
-    <div class="tot"><span>Total HT</span><b id="t-ht">0</b></div>
-    <div class="tot"><span class="chk"><input type="checkbox" id="f-tvaOn"> TVA <input id="f-tva" type="number" inputmode="decimal" step="0.1" style="width:64px"> %</span><b id="t-tva">0</b></div>
+    <div class="tot"><span>Sous-total TTC</span><b id="t-ht">0</b></div>
     <div class="tot"><span>AIRSI <input id="f-airsi" type="number" inputmode="decimal" step="0.1" style="width:64px"> %</span><b id="t-airsi">0</b></div>
     <div class="tot"><span>Autres (FCFA)</span><input id="f-autres" type="number" inputmode="numeric" style="width:120px"></div>
     <div class="tot big"><span>TOTAL TTC</span><span id="t-ttc">0</span></div>
@@ -163,7 +162,7 @@ nav.tabs button.on{color:var(--red);font-weight:700}
     <div class="row"><div><input id="c-desc" placeholder="Désignation"></div></div>
     <div class="row" style="margin-top:8px">
       <div><input id="c-unit" placeholder="Unité (m², ml…)"></div>
-      <div><input id="c-price" type="number" inputmode="numeric" placeholder="Prix HT"></div>
+      <div><input id="c-price" type="number" inputmode="numeric" placeholder="Prix TTC"></div>
       <button class="btn red" id="c-add" style="flex:0 0 auto">Ajouter</button>
     </div>
     <div id="catList" style="margin-top:10px"></div>
@@ -180,8 +179,7 @@ nav.tabs button.on{color:var(--red);font-weight:700}
     <label>Pied de page (une ligne par ligne)</label><textarea id="s-footer" rows="4"></textarea>
     <label>Notes par défaut</label><textarea id="s-notes" rows="3"></textarea>
     <div class="row">
-      <div><label>TVA par défaut %</label><input id="s-tva" type="number" inputmode="decimal"></div>
-      <div><label>Validité par défaut (j)</label><input id="s-valid" type="number" inputmode="numeric"></div>
+            <div><label>Validité par défaut (j)</label><input id="s-valid" type="number" inputmode="numeric"></div>
     </div>
     <label>Préfixe numéro</label><input id="s-prefix">
     <div style="margin-top:12px" class="actions">
@@ -260,17 +258,16 @@ function nextNum(){const y=new Date().getFullYear();const seq=load(K.n,{});const
   return{num:`${S.prefix}-${y}-${String(v).padStart(3,"0")}`,commit:()=>{seq[k]=Math.max(seq[k]||0,v);store(K.n,seq)}}}
 
 function blank(){const n=nextNum();return{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),num:n.num,_commit:true,date:today(),valid:S.valid,client:"",tel:"",lieu:"",objet:"",
-  lines:[{desc:"",unit:"",qty:"",pu:""}],tvaOn:true,tva:S.tva,airsi:0,autres:0,notes:S.notes}}
+  lines:[{desc:"",unit:"",qty:"",pu:""}],tvaOn:false,airsi:0,autres:0,notes:S.notes}}
 
 function calc(q){const ht=q.lines.reduce((a,l)=>a+num(l.qty)*num(l.pu),0);
-  const tva=q.tvaOn?ht*num(q.tva)/100:0;const airsi=ht*num(q.airsi)/100;const ttc=ht+tva+airsi+num(q.autres);return{ht,tva,airsi,ttc}}
+  const airsi=ht*num(q.airsi)/100;const ttc=ht+airsi+num(q.autres);return{ht,airsi,ttc}}
 
 /* ---- edit form ---- */
-const F=["num","date","valid","client","tel","lieu","objet","tva","airsi","autres","notes"];
-function fill(){F.forEach(k=>$("#f-"+k).value=cur[k]??"");$("#f-tvaOn").checked=!!cur.tvaOn;renderLines();totals();
+const F=["num","date","valid","client","tel","lieu","objet","airsi","autres","notes"];
+function fill(){F.forEach(k=>$("#f-"+k).value=cur[k]??"");renderLines();totals();
   $("#hdSub").textContent=cur.num}
 F.forEach(k=>$("#f-"+k).addEventListener("input",e=>{cur[k]=e.target.value;if(k==="num")$("#hdSub").textContent=cur.num;totals()}));
-$("#f-tvaOn").addEventListener("change",e=>{cur.tvaOn=e.target.checked;totals()});
 
 function renderLines(){const box=$("#lines");box.innerHTML="";
   cur.lines.forEach((l,i)=>{const d=document.createElement("div");d.className="line";
@@ -280,7 +277,7 @@ function renderLines(){const box=$("#lines");box.innerHTML="";
     <div class="row" style="margin-top:6px">
       <div><label>Qté</label><input type="number" inputmode="decimal" data-k="qty" value="${esc(l.qty)}"></div>
       <div><label>Unité</label><input data-k="unit" value="${esc(l.unit)}" placeholder="m²"></div>
-      <div style="flex:1.4"><label>Prix HT</label><input type="number" inputmode="numeric" data-k="pu" value="${esc(l.pu)}"></div>
+      <div style="flex:1.4"><label>Prix TTC</label><input type="number" inputmode="numeric" data-k="pu" value="${esc(l.pu)}"></div>
     </div><div class="amt">0</div>`;
     d.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("input",e=>{const k=el.dataset.k;
       if(k==="pick"){const it=CAT.find(c=>c.desc===el.value);if(it){l.desc=it.desc;l.unit=it.unit;l.pu=it.price;el.value="";renderLines();totals();}return}
@@ -291,7 +288,7 @@ $("#addLine").onclick=()=>{cur.lines.push({desc:"",unit:"",qty:"",pu:""});render
   const ls=document.querySelectorAll(".line textarea");ls[ls.length-1].focus()};
 
 function totals(){const t=calc(cur);document.querySelectorAll(".line .amt").forEach((el,i)=>{const l=cur.lines[i];el.textContent=fmt(num(l.qty)*num(l.pu))+" FCFA"});
-  $("#t-ht").textContent=fmt(t.ht);$("#t-tva").textContent=fmt(t.tva);$("#t-airsi").textContent=fmt(t.airsi);
+  $("#t-ht").textContent=fmt(t.ht);$("#t-airsi").textContent=fmt(t.airsi);
   $("#t-ttc").textContent=fmt(t.ttc)+" FCFA";$("#t-letters").textContent=t.ttc?cap(enLettres(t.ttc))+" francs CFA":"";}
 const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
 
@@ -309,7 +306,7 @@ function dirty(){const s=Q.find(x=>x.id===cur.id);const a=JSON.stringify(Object.
 
 $("#bWa").onclick=()=>{const t=calc(cur);let m=`*${S.name} – Devis ${cur.num}*\nDate : ${frDate(cur.date)}\nClient : ${cur.client}\n`+(cur.objet?`Objet : ${cur.objet}\n`:"")+"\n";
   cur.lines.filter(l=>l.desc).forEach(l=>{m+=`• ${l.desc} — ${l.qty} ${l.unit||""} × ${fmt(num(l.pu))} = ${fmt(num(l.qty)*num(l.pu))} F\n`});
-  m+=`\nTotal HT : ${fmt(t.ht)} F\n`+(cur.tvaOn?`TVA ${cur.tva}% : ${fmt(t.tva)} F\n`:"")+(t.airsi?`AIRSI : ${fmt(t.airsi)} F\n`:"")+(num(cur.autres)?`Autres : ${fmt(num(cur.autres))} F\n`:"")+`*TOTAL TTC : ${fmt(t.ttc)} FCFA*`;
+  m+=`\nSous-total : ${fmt(t.ht)} F\n`+(t.airsi?`AIRSI : ${fmt(t.airsi)} F\n`:"")+(num(cur.autres)?`Autres : ${fmt(num(cur.autres))} F\n`:"")+`*TOTAL TTC : ${fmt(t.ttc)} FCFA*`;
   const tel=(cur.tel||"").replace(/\D/g,"");const a=document.createElement("a");a.href="https://wa.me/"+(tel?(tel.length<=10?"225"+tel:tel):"")+"?text="+encodeURIComponent(m);a.target="_blank";a.rel="noopener";document.body.appendChild(a);a.click();a.remove()};
 
 /* ---- document ---- */
@@ -320,13 +317,12 @@ function renderDoc(q){const t=calc(q);
    <div class="rt"><div class="ti">DEVIS</div><div class="meta">N° <b>${esc(q.num)}</b><br>Date : ${frDate(q.date)}${exp?`<br>Valable jusqu’au ${exp}`:""}</div></div></div>
    <div class="cl"><div></div><div class="box"><b>Devis pour :</b><strong>${esc(q.client)}</strong>${q.tel?`<br>Tél : ${esc(q.tel)}`:""}${q.lieu?`<br>${esc(q.lieu)}`:""}</div></div>
    ${q.objet?`<div class="obj"><b>Objet :</b> ${esc(q.objet)}</div>`:""}
-   <table><thead><tr><th style="width:8mm">#</th><th>DESCRIPTION</th><th class="n">QUANTITÉ</th><th class="n">PRIX HT</th><th class="n">MONTANT</th></tr></thead><tbody>${rows}</tbody></table>
-   <div class="sum"><div><span>TOTAL HT</span><b>${fmt(t.ht)}</b></div>
-    ${q.tvaOn?`<div><span>TVA (${esc(q.tva)} %)</span><span>${fmt(t.tva)}</span></div>`:""}
+   <table><thead><tr><th style="width:8mm">#</th><th>DESCRIPTION</th><th class="n">QUANTITÉ</th><th class="n">PRIX TTC</th><th class="n">MONTANT</th></tr></thead><tbody>${rows}</tbody></table>
+   <div class="sum">${(num(q.airsi)||num(q.autres))?`<div><span>SOUS-TOTAL</span><b>${fmt(t.ht)}</b></div>`:""}
     ${num(q.airsi)?`<div><span>AIRSI (${esc(q.airsi)} %)</span><span>${fmt(t.airsi)}</span></div>`:""}
     ${num(q.autres)?`<div><span>AUTRES</span><span>${fmt(num(q.autres))}</span></div>`:""}
     <div class="g"><span>TOTAL TTC (FCFA)</span><span>${fmt(t.ttc)}</span></div></div>
-   <div class="lt">Arrêté le présent devis à la somme de : <b>${cap(enLettres(t.ttc))} francs CFA</b>${q.tvaOn?" TTC":""}.</div>
+   <div class="lt">Arrêté le présent devis à la somme de : <b>${cap(enLettres(t.ttc))} francs CFA</b> TTC.</div>
    ${q.notes?`<div class="nt">${esc(q.notes)}</div>`:""}
    <div class="sig"><div>Bon pour accord (client)</div><div>La Direction</div></div>
    <div class="ft">${S.footer.split("\n").map(esc).join("<br>")}</div>`;
@@ -356,16 +352,16 @@ function refreshDL(){$("#dl-items").innerHTML=CAT.map(c=>`<option value="${esc(c
 function renderCat(){const box=$("#catList");if(!CAT.length){box.innerHTML=`<div class="empty">Catalogue vide. Les lignes de vos devis enregistrés y sont ajoutées automatiquement.</div>`;return}
   box.innerHTML=CAT.map((c,i)=>`<div class="item"><div><div class="t">${esc(c.desc)}</div><div class="s">${fmt(c.price)} F${c.unit?" / "+esc(c.unit):""}</div></div><div class="acts"><button data-i="${i}" data-a="ed">✎</button><button data-i="${i}" data-a="rm">🗑</button></div></div>`).join("");
   box.querySelectorAll("button").forEach(b=>b.onclick=async()=>{const i=+b.dataset.i;
-    if(b.dataset.a==="rm"){CAT.splice(i,1)}else{const p=await ask("Nouveau prix HT pour : "+CAT[i].desc,CAT[i].price);if(p===null)return;CAT[i].price=num(p)}
+    if(b.dataset.a==="rm"){CAT.splice(i,1)}else{const p=await ask("Nouveau prix TTC pour : "+CAT[i].desc,CAT[i].price);if(p===null)return;CAT[i].price=num(p)}
     store(K.c,CAT);renderCat();refreshDL()})}
 $("#c-add").onclick=()=>{const d=$("#c-desc").value.trim();if(!d)return;const ex=CAT.find(c=>c.desc===d);
   const it={desc:d,unit:$("#c-unit").value.trim(),price:num($("#c-price").value)};if(ex)Object.assign(ex,it);else CAT.push(it);
   store(K.c,CAT);["#c-desc","#c-unit","#c-price"].forEach(s=>$(s).value="");renderCat();refreshDL();toast("Article ajouté")};
 
 /* ---- settings ---- */
-const SF=["name","full","slogan","footer","notes","tva","valid","prefix"];
+const SF=["name","full","slogan","footer","notes","valid","prefix"];
 function fillSet(){SF.forEach(k=>$("#s-"+k).value=S[k])}
-$("#s-save").onclick=()=>{SF.forEach(k=>S[k]=$("#s-"+k).value);S.tva=num(S.tva);S.valid=num(S.valid);store(K.s,S);$("#hdName").textContent=S.name;toast("Réglages enregistrés")};
+$("#s-save").onclick=()=>{SF.forEach(k=>S[k]=$("#s-"+k).value);S.valid=num(S.valid);store(K.s,S);$("#hdName").textContent=S.name;toast("Réglages enregistrés")};
 $("#s-export").onclick=()=>{const b=new Blob([JSON.stringify({devis:Q,catalogue:CAT,reglages:S,seq:load(K.n,{})},null,1)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`sauvegarde-devis-${today()}.json`;a.click()};
 $("#s-import").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async()=>{try{const d=JSON.parse(r.result);
